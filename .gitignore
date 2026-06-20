@@ -17,3 +17,5 @@ storage/clips/*
 storage/thumbnails/*
 storage/temp/*
 !storage/**/.gitkeep
+
+backend/storage
