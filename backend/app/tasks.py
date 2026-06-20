@@ -4,6 +4,7 @@ from app.database import SessionLocal
 from app.models import Clip, Job
 from app.downloader import download_video
 from app.clipper import clip_video
+from app.thumbnailer import generate_thumbnail
 
 
 def update_job(db, job: Job, status: str, progress: int, message: str, error: str = None):
@@ -20,7 +21,7 @@ def update_job(db, job: Job, status: str, progress: int, message: str, error: st
 def process_clip_job(job_id: str):
     """
     Main processing actor.
-    Pipeline: download → clip → thumbnail (thumbnail added in Step 5)
+    Full pipeline: download → clip → thumbnail → done
     """
     db = SessionLocal()
     try:
@@ -72,8 +73,25 @@ def process_clip_job(job_id: str):
         print(f"[worker] ✅ Clip complete: {clip_path}")
         update_job(db, job, "processing", 80, "Clip complete, generating thumbnail")
 
-        # ── Step 3: Thumbnail (coming in Step 5) ─────────────────────────
-        update_job(db, job, "processing", 85, "Waiting for thumbnail step (coming soon)")
+        # ── Step 3: Thumbnail ─────────────────────────────────────────────
+        clip_duration = clip.end_time - clip.start_time
+
+        thumbnail_path = generate_thumbnail(
+            clip_path=clip_path,
+            clip_id=clip.id,
+            duration=clip_duration,
+            progress_callback=on_progress,
+        )
+
+        clip.thumbnail_path = thumbnail_path
+        db.commit()
+        db.refresh(clip)
+
+        print(f"[worker] ✅ Thumbnail complete: {thumbnail_path}")
+
+        # ── Done ──────────────────────────────────────────────────────────
+        update_job(db, job, "done", 100, "Clip ready for download")
+        print(f"[worker] 🎉 Job {job_id} complete!")
 
     except Exception as e:
         print(f"[worker] ❌ Job {job_id} failed: {e}")
