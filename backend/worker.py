@@ -1,18 +1,16 @@
-import dramatiq
-from dramatiq.brokers.redis import RedisBroker
+import sys
 import os
-from dotenv import load_dotenv
 
+# Ensure app/ is importable
+sys.path.insert(0, os.path.dirname(__file__))
+
+from dotenv import load_dotenv
 load_dotenv("../.env")
 
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-broker = RedisBroker(url=redis_url)
-dramatiq.set_broker(broker)
-
-@dramatiq.actor
-def process_clip(job_id: str):
-    # Placeholder — real logic comes in Phase 3
-    print(f"[worker] Received job: {job_id}")
+# Import broker setup first, then tasks
+from app.worker_setup import broker
+from app.tasks import process_clip_job
 
 if __name__ == "__main__":
-    print("[worker] Worker started, waiting for jobs...")
+    print("[worker] Starting Dramatiq worker...")
+    print(f"[worker] Listening on queue: clips")
