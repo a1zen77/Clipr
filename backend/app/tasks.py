@@ -3,6 +3,7 @@ from app.worker_setup import broker
 from app.database import SessionLocal
 from app.models import Clip, Job
 from app.downloader import download_video
+from app.clipper import clip_video
 
 
 def update_job(db, job: Job, status: str, progress: int, message: str, error: str = None):
@@ -19,7 +20,7 @@ def update_job(db, job: Job, status: str, progress: int, message: str, error: st
 def process_clip_job(job_id: str):
     """
     Main processing actor.
-    Pipeline: download → clip → thumbnail (clip & thumbnail added in Steps 4–5)
+    Pipeline: download → clip → thumbnail (thumbnail added in Step 5)
     """
     db = SessionLocal()
     try:
@@ -47,17 +48,32 @@ def process_clip_job(job_id: str):
             progress_callback=on_progress,
         )
 
-        # Save video metadata back to the clip record
         clip.video_path = result["file_path"]
         clip.title = result["title"]
         db.commit()
         db.refresh(clip)
 
         print(f"[worker] ✅ Download complete: {result['file_path']}")
-        update_job(db, job, "processing", 40, "Download complete")
+        update_job(db, job, "processing", 40, "Download complete, starting clip")
 
-        # ── Steps 2 & 3: Clip + Thumbnail (coming in Steps 4–5) ──────────
-        update_job(db, job, "processing", 45, "Waiting for clip step (coming soon)")
+        # ── Step 2: Clip ──────────────────────────────────────────────────
+        clip_path = clip_video(
+            input_path=clip.video_path,
+            clip_id=clip.id,
+            start_time=clip.start_time,
+            end_time=clip.end_time,
+            progress_callback=on_progress,
+        )
+
+        clip.clip_path = clip_path
+        db.commit()
+        db.refresh(clip)
+
+        print(f"[worker] ✅ Clip complete: {clip_path}")
+        update_job(db, job, "processing", 80, "Clip complete, generating thumbnail")
+
+        # ── Step 3: Thumbnail (coming in Step 5) ─────────────────────────
+        update_job(db, job, "processing", 85, "Waiting for thumbnail step (coming soon)")
 
     except Exception as e:
         print(f"[worker] ❌ Job {job_id} failed: {e}")
