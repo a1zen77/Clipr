@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Clip, Job
 from app.schemas import ClipCreate, ClipResponse, ClipListResponse
+from app.tasks import process_clip_job
 
 router = APIRouter(prefix="/clips", tags=["clips"])
 
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/clips", tags=["clips"])
 
 @router.post("", response_model=ClipResponse, status_code=201)
 def create_clip(payload: ClipCreate, db: Session = Depends(get_db)):
-    """Submit a new clip request."""
+    """Submit a new clip request and dispatch it to the worker queue."""
 
     # Create the clip record
     clip = Clip(
@@ -37,6 +38,10 @@ def create_clip(payload: ClipCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(clip)
 
+    # Dispatch to the worker queue
+    process_clip_job.send(job.id)
+    print(f"[api] ✅ Dispatched job {job.id} for clip {clip.id}")
+
     return clip
 
 
@@ -60,7 +65,7 @@ def list_clips(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
 
 @router.get("/{clip_id}", response_model=ClipResponse)
 def get_clip(clip_id: str, db: Session = Depends(get_db)):
-    """Get a single clip and its job status."""
+    """Get a single clip and its current job status."""
     clip = db.query(Clip).filter(Clip.id == clip_id).first()
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
