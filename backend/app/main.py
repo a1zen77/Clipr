@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import clips
+from app.routers import clips, files
 
 app = FastAPI(title="Social Video Clipper API")
 
@@ -14,6 +14,8 @@ app.add_middleware(
 
 # Routers
 app.include_router(clips.router)
+app.include_router(files.router)
+
 
 @app.get("/health")
 def health_check():
