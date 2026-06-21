@@ -2,10 +2,21 @@
 
 import { useState } from "react";
 import { ClipForm } from "@/components/ClipForm";
+import { ClipProgress } from "@/components/ClipProgress";
 import { type Clip } from "@/lib/api";
 
 export default function Home() {
   const [activeClip, setActiveClip] = useState<Clip | null>(null);
+  const [completedClip, setCompletedClip] = useState<Clip | null>(null);
+
+  function handleClipCreated(clip: Clip) {
+    setActiveClip(clip);
+    setCompletedClip(null);
+  }
+
+  function handleComplete(clip: Clip) {
+    setCompletedClip(clip);
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -22,16 +33,24 @@ export default function Home() {
         </div>
 
         {/* Form */}
-        <ClipForm onClipCreated={(clip) => setActiveClip(clip)} />
+        <ClipForm onClipCreated={handleClipCreated} />
 
-        {/* Placeholder — replaced in Step 3 */}
-        {activeClip && (
-          <div className="rounded-md bg-blue-50 border border-blue-200 px-4 py-3">
-            <p className="text-sm text-blue-700">
-              ✅ Clip submitted! ID: <span className="font-mono">{activeClip.id}</span>
+        {/* Progress tracker */}
+        {activeClip && !completedClip && (
+          <ClipProgress
+            clipId={activeClip.id}
+            onComplete={handleComplete}
+          />
+        )}
+
+        {/* Placeholder — replaced in Step 4 */}
+        {completedClip && (
+          <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3">
+            <p className="text-sm text-green-700 font-medium">
+              ✅ Clip ready! Result card coming in Step 4.
             </p>
-            <p className="text-sm text-blue-600 mt-1">
-              Status: {activeClip.job?.status} — Progress tracker coming in Step 3.
+            <p className="text-sm text-green-600 font-mono mt-1">
+              {completedClip.id}
             </p>
           </div>
         )}
