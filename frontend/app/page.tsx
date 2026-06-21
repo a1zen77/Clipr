@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ClipForm } from "@/components/ClipForm";
 import { ClipProgress } from "@/components/ClipProgress";
 import { ClipResultCard } from "@/components/ClipResultCard";
+import { ClipHistoryList } from "@/components/ClipHistoryList";
 import { type Clip } from "@/lib/api";
 
 export default function Home() {
@@ -58,6 +59,9 @@ export default function Home() {
             onCreateAnother={handleCreateAnother}
           />
         )}
+
+        {/* History — always visible */}
+        <ClipHistoryList />
 
       </div>
     </main>
