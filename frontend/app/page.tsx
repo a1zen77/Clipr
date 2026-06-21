@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ClipForm } from "@/components/ClipForm";
 import { ClipProgress } from "@/components/ClipProgress";
+import { ClipResultCard } from "@/components/ClipResultCard";
 import { type Clip } from "@/lib/api";
 
 export default function Home() {
@@ -16,6 +17,11 @@ export default function Home() {
 
   function handleComplete(clip: Clip) {
     setCompletedClip(clip);
+  }
+
+  function handleCreateAnother() {
+    setActiveClip(null);
+    setCompletedClip(null);
   }
 
   return (
@@ -32,8 +38,10 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Form */}
-        <ClipForm onClipCreated={handleClipCreated} />
+        {/* Form — hidden while processing or done */}
+        {!activeClip && !completedClip && (
+          <ClipForm onClipCreated={handleClipCreated} />
+        )}
 
         {/* Progress tracker */}
         {activeClip && !completedClip && (
@@ -43,16 +51,12 @@ export default function Home() {
           />
         )}
 
-        {/* Placeholder — replaced in Step 4 */}
+        {/* Result card */}
         {completedClip && (
-          <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3">
-            <p className="text-sm text-green-700 font-medium">
-              ✅ Clip ready! Result card coming in Step 4.
-            </p>
-            <p className="text-sm text-green-600 font-mono mt-1">
-              {completedClip.id}
-            </p>
-          </div>
+          <ClipResultCard
+            clip={completedClip}
+            onCreateAnother={handleCreateAnother}
+          />
         )}
 
       </div>
