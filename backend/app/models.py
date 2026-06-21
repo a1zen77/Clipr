@@ -15,23 +15,26 @@ class Clip(Base):
     __tablename__ = "clips"
 
     id = Column(String, primary_key=True, default=generate_uuid)
-    url = Column(String, nullable=False)           # Original X/Twitter URL
-    start_time = Column(Float, nullable=False)     # Start timestamp in seconds
-    end_time = Column(Float, nullable=False)       # End timestamp in seconds
-    title = Column(String, nullable=True)          # Extracted video title
-    duration = Column(Float, nullable=True)        # Clip duration in seconds
+    url = Column(String, nullable=False)
+    start_time = Column(Float, nullable=False)
+    end_time = Column(Float, nullable=False)
+    title = Column(String, nullable=True)
+    duration = Column(Float, nullable=True)
 
-    # File paths (populated after processing)
-    video_path = Column(String, nullable=True)     # Path to original video
-    clip_path = Column(String, nullable=True)      # Path to generated clip
-    thumbnail_path = Column(String, nullable=True) # Path to thumbnail
+    video_path = Column(String, nullable=True)
+    clip_path = Column(String, nullable=True)
+    thumbnail_path = Column(String, nullable=True)
 
-    # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationship to job
-    job = relationship("Job", back_populates="clip", uselist=False)
+    # cascade="all, delete-orphan" ensures Job is deleted when Clip is deleted
+    job = relationship(
+        "Job",
+        back_populates="clip",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class Job(Base):
@@ -39,14 +42,12 @@ class Job(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     clip_id = Column(String, ForeignKey("clips.id"), nullable=False)
-    status = Column(String, default="pending")     # pending, processing, done, failed
-    progress = Column(Integer, default=0)          # 0–100
-    message = Column(Text, nullable=True)          # Current step description
-    error = Column(Text, nullable=True)            # Error message if failed
+    status = Column(String, default="pending")
+    progress = Column(Integer, default=0)
+    message = Column(Text, nullable=True)
+    error = Column(Text, nullable=True)
 
-    # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationship to clip
     clip = relationship("Clip", back_populates="job")
