@@ -1,26 +1,19 @@
 "use client";
 
 import { getClipDownloadUrl, getThumbnailUrl, type Clip } from "@/lib/api";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 interface ClipResultCardProps {
   clip: Clip;
   onCreateAnother: () => void;
 }
 
-function formatDuration(seconds: number): string {
+function fmt(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-function formatTimestamp(seconds: number): string {
+function ts(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
@@ -30,95 +23,130 @@ export function ClipResultCard({ clip, onCreateAnother }: ClipResultCardProps) {
   const duration = clip.end_time - clip.start_time;
 
   return (
-    <Card className="w-full border-green-200 bg-green-50/30">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base text-green-800">
-            ✅ Clip Ready
-          </CardTitle>
-          <span className="text-xs text-green-600 font-medium">
-            {formatDuration(duration)}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-
-        {/* Thumbnail */}
-        {clip.thumbnail_path && (
-          <div className="relative w-full aspect-video rounded-md overflow-hidden bg-gray-100 border">
-            <img
-              src={getThumbnailUrl(clip.id)}
-              alt={clip.title ?? "Clip thumbnail"}
-              className="w-full h-full object-cover"
-            />
-            {/* Duration overlay */}
-            <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-              {formatDuration(duration)}
-            </div>
+    <div style={{
+      background: "var(--bg-surface)",
+      border: "1px solid var(--border)",
+      borderRadius: 12,
+      overflow: "hidden",
+    }}>
+      {/* Thumbnail */}
+      {clip.thumbnail_path && (
+        <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "var(--bg-base)" }}>
+          <img
+            src={getThumbnailUrl(clip.id)}
+            alt={clip.title ?? "Clip thumbnail"}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <div style={{
+            position: "absolute", bottom: 10, right: 10,
+            background: "rgba(0,0,0,0.75)",
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 600,
+            padding: "3px 8px",
+            borderRadius: 6,
+          }}>
+            {fmt(duration)}
           </div>
+          {/* Ready badge */}
+          <div style={{
+            position: "absolute", top: 10, left: 10,
+            background: "var(--success)",
+            color: "#000",
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "3px 8px",
+            borderRadius: 6,
+            letterSpacing: "0.03em",
+          }}>
+            READY
+          </div>
+        </div>
+      )}
+
+      <div style={{ padding: "1.25rem" }}>
+        {/* Title */}
+        {clip.title && (
+          <p style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: "var(--text-primary)",
+            marginBottom: "1rem",
+            lineHeight: 1.4,
+          }}>
+            {clip.title}
+          </p>
         )}
 
         {/* Metadata */}
-        <div className="space-y-2">
-          {clip.title && (
-            <div>
-              <p className="text-xs text-gray-500">Title</p>
-              <p className="text-sm text-gray-800 font-medium line-clamp-2">
-                {clip.title}
-              </p>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 8,
+          marginBottom: "1.25rem",
+        }}>
+          {[
+            { label: "Start",    value: ts(clip.start_time) },
+            { label: "End",      value: ts(clip.end_time)   },
+            { label: "Duration", value: fmt(duration)        },
+          ].map(({ label, value }) => (
+            <div key={label} style={{
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: 8,
+              padding: "8px 10px",
+            }}>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", fontFamily: "monospace" }}>{value}</p>
             </div>
-          )}
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-md bg-white border px-3 py-2">
-              <p className="text-xs text-gray-500">Start</p>
-              <p className="text-sm font-medium text-gray-800">
-                {formatTimestamp(clip.start_time)}
-              </p>
-            </div>
-            <div className="rounded-md bg-white border px-3 py-2">
-              <p className="text-xs text-gray-500">End</p>
-              <p className="text-sm font-medium text-gray-800">
-                {formatTimestamp(clip.end_time)}
-              </p>
-            </div>
-            <div className="rounded-md bg-white border px-3 py-2">
-              <p className="text-xs text-gray-500">Duration</p>
-              <p className="text-sm font-medium text-gray-800">
-                {formatDuration(duration)}
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3">
-          <Button
-            className="flex-1"
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
             onClick={() => {
               const a = document.createElement("a");
               a.href = getClipDownloadUrl(clip.id);
               a.download = `clip-${clip.id}.mp4`;
               a.click();
             }}
+            style={{
+              flex: 1,
+              background: "var(--accent)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "11px 16px",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
           >
-            ⬇ Download MP4
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1"
+            ↓ Download MP4
+          </button>
+          <button
             onClick={onCreateAnother}
+            style={{
+              flex: 1,
+              background: "transparent",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              padding: "11px 16px",
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
           >
-            Create Another
-          </Button>
+            New clip
+          </button>
         </div>
 
-        {/* Clip ID */}
-        <p className="text-xs text-gray-400 font-mono truncate">
-          ID: {clip.id}
+        <p style={{ marginTop: "0.75rem", fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
+          {clip.id}
         </p>
-
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

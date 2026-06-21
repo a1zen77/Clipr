@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { listClips, type Clip } from "@/lib/api";
 
 export default function Home() {
-  const [activeClip, setActiveClip] = useState<Clip | null>(null);
+  const [activeClip, setActiveClip]       = useState<Clip | null>(null);
   const [completedClip, setCompletedClip] = useState<Clip | null>(null);
 
   const { data } = useQuery({
@@ -21,29 +21,32 @@ export default function Home() {
 
   const hasHistory = (data?.total ?? 0) > 0;
 
-  function handleClipCreated(clip: Clip) {
-    setActiveClip(clip);
-    setCompletedClip(null);
-  }
-
-  function handleComplete(clip: Clip) {
-    setCompletedClip(clip);
-  }
-
-  function handleCreateAnother() {
-    setActiveClip(null);
-    setCompletedClip(null);
-  }
+  function handleClipCreated(clip: Clip) { setActiveClip(clip); setCompletedClip(null); }
+  function handleComplete(clip: Clip)    { setCompletedClip(clip); }
+  function handleCreateAnother()         { setActiveClip(null); setCompletedClip(null); }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-10 space-y-6">
+    <main style={{
+      minHeight: "100vh",
+      width: "100%",
+      background: "var(--bg-base)",
+      display: "flex",
+      justifyContent: "center",
+    }}>
+      <div style={{
+        width: "100%",
+        maxWidth: 680,
+        padding: "2rem 1.5rem 4rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.25rem",
+      }}>
 
-        {/* Hero text — only shown when no active job */}
+        {/* Hero */}
         {!activeClip && !completedClip && (
-          <div className="text-center space-y-1 pt-2 pb-2">
-            <p className="text-gray-500 text-sm">
-              Paste a URL · Set timestamps · Download your clip
+          <div style={{ paddingTop: "1rem", paddingBottom: "0.5rem" }}>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>
+              Paste a URL · set timestamps · download your clip
             </p>
           </div>
         )}
@@ -53,39 +56,32 @@ export default function Home() {
           <ClipForm onClipCreated={handleClipCreated} />
         )}
 
-        {/* Progress tracker */}
+        {/* Progress */}
         {activeClip && !completedClip && (
-          <ClipProgress
-            clipId={activeClip.id}
-            onComplete={handleComplete}
-          />
+          <ClipProgress clipId={activeClip.id} onComplete={handleComplete} />
         )}
 
-        {/* Result card */}
+        {/* Result */}
         {completedClip && (
-          <ClipResultCard
-            clip={completedClip}
-            onCreateAnother={handleCreateAnother}
-          />
+          <ClipResultCard clip={completedClip} onCreateAnother={handleCreateAnother} />
         )}
 
-        {/* Divider between active area and history */}
+        {/* History divider */}
         {hasHistory && (
-          <div className="flex items-center gap-3 pt-2">
-            <div className="flex-1 border-t border-gray-200" />
-            <span className="text-xs text-gray-400 uppercase tracking-wide">
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />
+            <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               History
             </span>
-            <div className="flex-1 border-t border-gray-200" />
+            <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />
           </div>
         )}
 
-        {/* History list or empty state */}
-        {hasHistory ? (
-          <ClipHistoryList />
-        ) : (
-          !activeClip && !completedClip && <EmptyState />
-        )}
+        {/* History or empty */}
+        {hasHistory
+          ? <ClipHistoryList />
+          : (!activeClip && !completedClip && <EmptyState />)
+        }
 
       </div>
     </main>

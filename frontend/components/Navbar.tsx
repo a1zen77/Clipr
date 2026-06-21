@@ -10,22 +10,58 @@ export function Navbar() {
   });
 
   const total = data?.total ?? 0;
-  const done = data?.clips.filter((c) => c.job?.status === "done").length ?? 0;
+  const done  = data?.clips.filter((c) => c.job?.status === "done").length ?? 0;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-sm">
-      <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🎬</span>
-          <span className="font-semibold text-gray-900">
-            Social Video Clipper
+    <header style={{
+      position: "sticky",
+      top: 0,
+      zIndex: 50,
+      borderBottom: "1px solid var(--border-subtle)",
+      background: "rgba(14,15,17,0.85)",
+      backdropFilter: "blur(12px)",
+    }}>
+      <div style={{
+        maxWidth: 672,
+        margin: "0 auto",
+        padding: "0 1rem",
+        height: 52,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: "var(--accent-dim)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+          }}>✂</span>
+          <span style={{
+            fontWeight: 600,
+            fontSize: 15,
+            color: "var(--text-primary)",
+            letterSpacing: "-0.01em",
+          }}>
+            Clipper
           </span>
         </div>
+
         {total > 0 && (
-          <div className="flex items-center gap-3 text-xs text-gray-500">
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            fontSize: 12,
+            color: "var(--text-muted)",
+          }}>
             <span>{total} clip{total !== 1 ? "s" : ""}</span>
-            <span className="text-gray-300">|</span>
-            <span className="text-green-600 font-medium">
+            <span style={{ color: "var(--border)" }}>|</span>
+            <span style={{ color: "var(--success)", fontWeight: 500 }}>
               {done} ready
             </span>
           </div>

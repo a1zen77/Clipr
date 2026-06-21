@@ -2,182 +2,154 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getClip, type Clip, type JobStatus } from "@/lib/api";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 interface ClipProgressProps {
   clipId: string;
   onComplete: (clip: Clip) => void;
 }
 
-function StatusBadge({ status }: { status: JobStatus }) {
-  const variants: Record<JobStatus, { label: string; className: string }> = {
-    pending: {
-      label: "Pending",
-      className: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    },
-    processing: {
-      label: "Processing",
-      className: "bg-blue-100 text-blue-800 border-blue-200",
-    },
-    done: {
-      label: "Done",
-      className: "bg-green-100 text-green-800 border-green-200",
-    },
-    failed: {
-      label: "Failed",
-      className: "bg-red-100 text-red-800 border-red-200",
-    },
-  };
+const STEPS = [
+  { label: "Queued",      threshold: 0   },
+  { label: "Downloading", threshold: 10  },
+  { label: "Clipping",    threshold: 40  },
+  { label: "Thumbnail",   threshold: 80  },
+  { label: "Done",        threshold: 100 },
+];
 
-  const { label, className } = variants[status] ?? variants.pending;
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${className}`}
-    >
-      {label}
-    </span>
-  );
-}
-
-function ProgressSteps({ progress }: { progress: number }) {
-  const steps = [
-    { label: "Queued",     threshold: 0  },
-    { label: "Downloading", threshold: 10 },
-    { label: "Clipping",   threshold: 40 },
-    { label: "Thumbnail",  threshold: 80 },
-    { label: "Done",       threshold: 100 },
-  ];
-
-  return (
-    <div className="flex justify-between mt-2">
-      {steps.map((step) => (
-        <span
-          key={step.label}
-          className={`text-xs ${
-            progress >= step.threshold
-              ? "text-blue-600 font-medium"
-              : "text-gray-400"
-          }`}
-        >
-          {step.label}
-        </span>
-      ))}
-    </div>
-  );
+function statusColor(status: JobStatus) {
+  if (status === "done")   return "var(--success)";
+  if (status === "failed") return "var(--error)";
+  return "var(--accent)";
 }
 
 export function ClipProgress({ clipId, onComplete }: ClipProgressProps) {
   const { data: clip, isError } = useQuery({
     queryKey: ["clip", clipId],
     queryFn: () => getClip(clipId),
-    // Poll every 2 seconds until the job is done or failed
     refetchInterval: (query) => {
       const status = query.state.data?.job?.status;
       if (status === "done" || status === "failed") return false;
       return 2000;
     },
-    // Fire onComplete when job finishes
     select: (data) => {
-      if (data.job?.status === "done") {
-        // Use setTimeout to avoid calling setState during render
-        setTimeout(() => onComplete(data), 0);
-      }
+      if (data.job?.status === "done") setTimeout(() => onComplete(data), 0);
       return data;
     },
   });
 
-  if (isError) {
-    return (
-      <Card className="w-full border-red-200">
-        <CardContent className="pt-6">
-          <p className="text-sm text-red-600">
-            ❌ Could not load clip status. The server may be unavailable.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isError) return (
+    <div style={{
+      background: "var(--error-dim)", border: "1px solid var(--error)",
+      borderRadius: 12, padding: "1.25rem", fontSize: 13, color: "var(--error)",
+    }}>
+      Could not load clip status.
+    </div>
+  );
 
-  if (!clip) {
-    return (
-      <Card className="w-full">
-        <CardContent className="pt-6">
-          <div className="space-y-3 animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/3" />
-            <div className="h-2 bg-gray-200 rounded" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const job = clip.job;
-  const status = job?.status ?? "pending";
+  const job      = clip?.job;
+  const status   = (job?.status ?? "pending") as JobStatus;
   const progress = job?.progress ?? 0;
-  const message = job?.message ?? "Waiting...";
-  const error = job?.error;
+  const message  = job?.message  ?? "Waiting...";
+  const color    = statusColor(status);
+
+  const statusLabels: Record<JobStatus, string> = {
+    pending: "Pending", processing: "Processing", done: "Done", failed: "Failed",
+  };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Processing Clip</CardTitle>
-          <StatusBadge status={status} />
+    <div style={{
+      background: "var(--bg-surface)",
+      border: "1px solid var(--border)",
+      borderRadius: 12,
+      padding: "1.5rem",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>Processing</h2>
+        <span style={{
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          color: color,
+          background: `${color}18`,
+          border: `1px solid ${color}40`,
+          borderRadius: 6,
+          padding: "2px 8px",
+        }}>
+          {statusLabels[status]}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ marginBottom: "0.75rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{message}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color }}>{progress}%</span>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-
-        {/* Progress bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>{message}</span>
-            <span className="font-medium">{progress}%</span>
-          </div>
-          <Progress
-            value={progress}
-            className={
-              status === "failed"
-                ? "[&>div]:bg-red-500"
-                : status === "done"
-                ? "[&>div]:bg-green-500"
-                : "[&>div]:bg-blue-500"
-            }
-          />
-          <ProgressSteps progress={progress} />
+        <div style={{
+          height: 4,
+          background: "var(--bg-elevated)",
+          borderRadius: 99,
+          overflow: "hidden",
+        }}>
+          <div style={{
+            height: "100%",
+            width: `${progress}%`,
+            background: color,
+            borderRadius: 99,
+            transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)",
+            boxShadow: status !== "failed" ? `0 0 8px ${color}60` : "none",
+          }} />
         </div>
+      </div>
 
-        {/* Clip metadata — shown once title is available */}
-        {clip.title && (
-          <div className="rounded-md bg-gray-50 border px-3 py-2">
-            <p className="text-xs text-gray-500">Title</p>
-            <p className="text-sm text-gray-800 font-medium truncate">
-              {clip.title}
-            </p>
-          </div>
-        )}
+      {/* Step labels */}
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        {STEPS.map((step) => (
+          <span key={step.label} style={{
+            fontSize: 11,
+            color: progress >= step.threshold ? color : "var(--text-muted)",
+            fontWeight: progress >= step.threshold ? 500 : 400,
+            transition: "color 0.3s",
+          }}>
+            {step.label}
+          </span>
+        ))}
+      </div>
 
-        {/* Error message */}
-        {status === "failed" && error && (
-          <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2">
-            <p className="text-xs text-red-500 font-medium">Error</p>
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
+      {/* Title once available */}
+      {clip?.title && (
+        <div style={{
+          marginTop: "1rem",
+          padding: "10px 12px",
+          background: "var(--bg-elevated)",
+          borderRadius: 8,
+          fontSize: 13,
+          color: "var(--text-secondary)",
+        }}>
+          <span style={{ color: "var(--text-muted)", fontSize: 11, display: "block", marginBottom: 2 }}>Title</span>
+          <span style={{ color: "var(--text-primary)" }}>{clip.title}</span>
+        </div>
+      )}
 
-        {/* Clip ID for reference */}
-        <p className="text-xs text-gray-400 font-mono truncate">
-          ID: {clipId}
-        </p>
+      {/* Error */}
+      {status === "failed" && job?.error && (
+        <div style={{
+          marginTop: "1rem",
+          background: "var(--error-dim)",
+          border: "1px solid var(--error)",
+          borderRadius: 8,
+          padding: "10px 12px",
+          fontSize: 13,
+          color: "var(--error)",
+        }}>
+          {job.error}
+        </div>
+      )}
 
-      </CardContent>
-    </Card>
+      <p style={{ marginTop: "1rem", fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
+        {clipId}
+      </p>
+    </div>
   );
 }

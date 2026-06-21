@@ -1,26 +1,9 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  listClips,
-  deleteClip,
-  getClipDownloadUrl,
-  getThumbnailUrl,
-  type Clip,
-  type JobStatus,
-} from "@/lib/api";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { listClips, deleteClip, getClipDownloadUrl, getThumbnailUrl, type Clip, type JobStatus } from "@/lib/api";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDuration(seconds: number): string {
+function fmt(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
@@ -28,212 +11,165 @@ function formatDuration(seconds: number): string {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
 
 function StatusPill({ status }: { status: JobStatus }) {
-  const styles: Record<JobStatus, string> = {
-    pending:    "bg-yellow-100 text-yellow-700 border-yellow-200",
-    processing: "bg-blue-100   text-blue-700   border-blue-200",
-    done:       "bg-green-100  text-green-700  border-green-200",
-    failed:     "bg-red-100    text-red-700    border-red-200",
+  const map: Record<JobStatus, { color: string; bg: string }> = {
+    pending:    { color: "var(--warning)",  bg: "#78350f20" },
+    processing: { color: "var(--accent)",   bg: "#3D378020" },
+    done:       { color: "var(--success)",  bg: "#14532d20" },
+    failed:     { color: "var(--error)",    bg: "#450a0a20" },
   };
   const labels: Record<JobStatus, string> = {
-    pending:    "Pending",
-    processing: "Processing",
-    done:       "Done",
-    failed:     "Failed",
+    pending: "Pending", processing: "Processing", done: "Done", failed: "Failed",
   };
-
+  const { color, bg } = map[status];
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${styles[status]}`}
-    >
+    <span style={{
+      fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+      textTransform: "uppercase", color, background: bg,
+      border: `1px solid ${color}40`, borderRadius: 5, padding: "2px 7px",
+    }}>
       {labels[status]}
     </span>
   );
 }
 
-// ─── Single history row ───────────────────────────────────────────────────────
-
-function ClipHistoryRow({
-  clip,
-  onDelete,
-}: {
-  clip: Clip;
-  onDelete: (id: string) => void;
-}) {
-  const status = clip.job?.status ?? "pending";
+function ClipRow({ clip, onDelete }: { clip: Clip; onDelete: (id: string) => void }) {
+  const status   = (clip.job?.status ?? "pending") as JobStatus;
   const duration = clip.end_time - clip.start_time;
 
   return (
-    <div className="flex gap-4 py-4">
-      {/* Thumbnail or placeholder */}
-      <div className="w-28 h-16 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 border">
+    <div style={{
+      display: "flex",
+      gap: 14,
+      padding: "14px 0",
+      borderBottom: "1px solid var(--border-subtle)",
+    }}>
+      {/* Thumbnail */}
+      <div style={{
+        width: 100, height: 58, flexShrink: 0,
+        borderRadius: 6, overflow: "hidden",
+        background: "var(--bg-elevated)",
+        border: "1px solid var(--border)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 20,
+      }}>
         {clip.thumbnail_path ? (
-          <img
-            src={getThumbnailUrl(clip.id)}
-            alt={clip.title ?? "Clip thumbnail"}
-            className="w-full h-full object-cover"
-          />
+          <img src={getThumbnailUrl(clip.id)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-            {status === "processing" ? "⏳" : status === "failed" ? "❌" : "🎬"}
-          </div>
+          <span style={{ color: "var(--text-muted)" }}>
+            {status === "processing" ? "⏳" : status === "failed" ? "✕" : "▶"}
+          </span>
         )}
       </div>
 
       {/* Info */}
-      <div className="flex-1 min-w-0 space-y-1">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
           <StatusPill status={status} />
-          <span className="text-xs text-gray-400">
-            {formatDate(clip.created_at)}
-          </span>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{formatDate(clip.created_at)}</span>
         </div>
-
-        <p className="text-sm font-medium text-gray-800 truncate">
-          {clip.title ?? (
-            <span className="text-gray-400 font-normal">No title yet</span>
-          )}
+        <p style={{
+          fontSize: 13, fontWeight: 500, color: "var(--text-primary)",
+          marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {clip.title ?? <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>Processing...</span>}
         </p>
-
-        <p className="text-xs text-gray-400 truncate">{clip.url}</p>
-
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span>Duration: {formatDuration(duration)}</span>
-          {clip.job?.progress !== undefined && status !== "done" && (
-            <span>{clip.job.progress}%</span>
-          )}
-          {clip.job?.message && status !== "done" && (
-            <span className="truncate text-gray-400">{clip.job.message}</span>
-          )}
-        </div>
+        <p style={{
+          fontSize: 11, color: "var(--text-muted)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {fmt(duration)} · {clip.url}
+        </p>
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col gap-2 flex-shrink-0 justify-center">
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "center", flexShrink: 0 }}>
         {status === "done" && (
-          <Button
-            size="sm"
+          <button
             onClick={() => {
               const a = document.createElement("a");
               a.href = getClipDownloadUrl(clip.id);
               a.download = `clip-${clip.id}.mp4`;
               a.click();
             }}
+            style={{
+              background: "var(--accent)", color: "#fff",
+              border: "none", borderRadius: 6,
+              padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}
           >
-            ⬇ Download
-          </Button>
+            ↓ Download
+          </button>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+        <button
           onClick={() => onDelete(clip.id)}
+          style={{
+            background: "transparent", color: "var(--text-muted)",
+            border: "1px solid var(--border)", borderRadius: 6,
+            padding: "5px 12px", fontSize: 12, cursor: "pointer",
+          }}
         >
           Delete
-        </Button>
+        </button>
       </div>
     </div>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
 export function ClipHistoryList() {
   const queryClient = useQueryClient();
-
   const { data, isLoading, isError } = useQuery({
     queryKey: ["clips"],
     queryFn: () => listClips(0, 20),
-    refetchInterval: 5000, // refresh list every 5s in case statuses change
+    refetchInterval: 5000,
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteClip,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clips"] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clips"] }),
   });
 
-  if (isLoading) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-base">Recent Clips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 animate-pulse">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex gap-4">
-                <div className="w-28 h-16 bg-gray-200 rounded-md" />
-                <div className="flex-1 space-y-2 py-1">
-                  <div className="h-3 bg-gray-200 rounded w-1/4" />
-                  <div className="h-3 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
-                </div>
-              </div>
-            ))}
+  if (isLoading) return (
+    <div style={{ padding: "1.5rem", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
+      {[1,2,3].map(i => (
+        <div key={i} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+          <div style={{ width: 100, height: 58, background: "var(--bg-elevated)", borderRadius: 6 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ height: 12, background: "var(--bg-elevated)", borderRadius: 4, width: "30%", marginBottom: 8 }} />
+            <div style={{ height: 12, background: "var(--bg-elevated)", borderRadius: 4, width: "70%" }} />
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
+      ))}
+    </div>
+  );
 
-  if (isError) {
-    return (
-      <Card className="w-full border-red-200">
-        <CardContent className="pt-6">
-          <p className="text-sm text-red-600">
-            ❌ Could not load clip history.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isError) return (
+    <div style={{ padding: "1rem", background: "var(--error-dim)", border: "1px solid var(--error)", borderRadius: 12, fontSize: 13, color: "var(--error)" }}>
+      Could not load clip history.
+    </div>
+  );
 
   const clips = data?.clips ?? [];
   const total = data?.total ?? 0;
 
-  if (clips.length === 0) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-base">Recent Clips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-400 text-center py-6">
-            No clips yet. Submit one above to get started.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (clips.length === 0) return null;
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Recent Clips</CardTitle>
-          <span className="text-xs text-gray-400">{total} total</span>
-        </div>
-      </CardHeader>
-      <CardContent className="px-6">
-        {clips.map((clip, index) => (
-          <div key={clip.id}>
-            <ClipHistoryRow
-              clip={clip}
-              onDelete={(id) => deleteMutation.mutate(id)}
-            />
-            {index < clips.length - 1 && <Separator />}
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "0 1.25rem" }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 0", borderBottom: "1px solid var(--border)",
+      }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>History</span>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{total} total</span>
+      </div>
+      {clips.map((clip) => (
+        <ClipRow key={clip.id} clip={clip} onDelete={(id) => deleteMutation.mutate(id)} />
+      ))}
+    </div>
   );
 }
