@@ -1,6 +1,34 @@
-# Social Video Clipper 🎬
+# 🎬 Clipr
 
-A full-stack application that lets you create downloadable MP4 clips from videos embedded in X/Twitter posts. Paste a URL, set your start and end timestamps, and download your clip.
+Turn any X (Twitter) video into a clean, downloadable MP4 clip in seconds.
+
+Paste a link. Pick your timestamps. Get your clip.
+
+No editors. No timelines. No friction.
+
+---
+
+## ✂️ What is this?
+
+**Social Video Clipper** is a full-stack tool that lets you extract precise video segments from videos embedded in X/Twitter posts.
+
+Whether it’s:
+- a 10-second viral moment  
+- a highlight worth saving  
+- or just the best part of a long video  
+
+…you can clip it instantly and download it as an MP4.
+
+With longer videos now commonly appearing on X, timelines often include everything from short clips to multi-hour uploads like sports broadcasts or live recordings.
+
+**Social Video Clipper** makes it easy to trim exactly what you need from these videos.
+
+Whether you're:
+- creating content for reels & shorts  
+- saving useful snippets  
+- or grabbing that one specific moment from a long video  
+
+…it helps you turn long content into clean, shareable clips in seconds.
 
 ---
 
@@ -41,7 +69,7 @@ A full-stack application that lets you create downloadable MP4 clips from videos
 
 ## Prerequisites
 
-Make sure the following are installed on your machine:
+Check whether the following stuff is installed on your machine:
 
 | Tool | Version | Check |
 |---|---|---|
@@ -52,7 +80,7 @@ Make sure the following are installed on your machine:
 | FFmpeg | 6+ | `ffmpeg -version` |
 | Git | any | `git --version` |
 
-On macOS with Homebrew:
+I use a macOS, so Homebrew got it done for me. You can use Pip/UV/docker/whatever you prefer
 
 ```bash
 brew install postgresql@16 redis ffmpeg
@@ -60,6 +88,7 @@ brew services start postgresql@16
 brew services start redis
 ```
 
+Make sure that Redis and Postgres are running in the background at all times. You can change these settings anytime as you wish. 
 ---
 
 ## Setup
@@ -73,7 +102,7 @@ cd social_video_clipper
 
 ### 2. Configure environment variables
 
-Open `.env` and fill in your values — at minimum set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, and update `DATABASE_URL` to match.
+Create `.env` and fill in your values — set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `REDIS_URL` with some values.
 
 ### 3. Set up the database
 
@@ -110,6 +139,7 @@ npm install
 ## Running the app
 
 You need **three terminal tabs** running simultaneously.
+Make sure that the virtual environment is activated in all 3 tabs.
 
 **Tab 1 — API server:**
 
@@ -134,7 +164,7 @@ cd frontend
 npm run dev
 ```
 
-Then open http://localhost:3000
+Then open http://localhost:3000 in any browser. Make sure that your can access devtools.
 
 ---
 
@@ -177,10 +207,10 @@ curl -X POST http://localhost:8000/clips \\
 
 ## Known Limitations
 
-- **Storage** — clips are stored on the local filesystem. For production, replace with S3 or similar object storage.
+- **Storage** — clips are stored on the local filesystem. For production, replace with Amazon S3 or similar object storage.
 - **No authentication** — all clips are visible to anyone with access to the API. Add auth before deploying publicly.
-- **X/Twitter only** — yt-dlp supports many platforms but the URL validator only accepts X/Twitter URLs. This is intentional for the MVP scope.
-- **Single worker** — the worker runs with one process and one thread. 
+- **X/Twitter only** — yt-dlp supports many platforms but the URL validator only accepts X/Twitter URLs. This is intentional for 2 reasons: 1]MVP scope and 2] I'm addicted to the Bird app.
+- **Single worker** — the worker runs with one process and one thread. YOu can add more dramatiq workers if needed. 
 - **No cleanup** — source videos and clips are never automatically deleted. Add a scheduled cleanup job for production.
 
 ---
