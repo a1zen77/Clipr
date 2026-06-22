@@ -10,7 +10,7 @@ No editors. No timelines. No friction.
 
 ## ✂️ What is this?
 
-**Social Video Clipper** is a full-stack tool that lets you extract precise video segments from videos embedded in X/Twitter posts.
+**CLipr** is a full-stack tool that lets you extract precise video segments from videos embedded in X/Twitter posts.
 
 Whether it’s:
 - a 10-second viral moment  
@@ -21,7 +21,7 @@ Whether it’s:
 
 With longer videos now commonly appearing on X, timelines often include everything from short clips to multi-hour uploads like sports broadcasts or live recordings.
 
-**Social Video Clipper** makes it easy to trim exactly what you need from these videos.
+**Clipr** makes it easy to trim exactly what you need from these videos.
 
 Whether you're:
 - creating content for reels & shorts  
