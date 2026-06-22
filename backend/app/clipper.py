@@ -1,11 +1,12 @@
 import subprocess
 import os
 from dotenv import load_dotenv
+from app.exceptions import VideoClipError
 
 load_dotenv("../.env")
 
 STORAGE_PATH = os.getenv("STORAGE_PATH", "./storage")
-CLIPS_DIR = os.path.join(STORAGE_PATH, "clips")
+CLIPS_DIR    = os.path.join(STORAGE_PATH, "clips")
 
 
 def clip_video(
@@ -18,53 +19,52 @@ def clip_video(
     """
     Cut a section from a video file using FFmpeg.
 
-    Args:
-        input_path:        Path to the downloaded source video
-        clip_id:           Used to name the output file uniquely
-        start_time:        Start of the clip in seconds
-        end_time:          End of the clip in seconds
-        progress_callback: Optional fn(percent: int, message: str)
-
-    Returns:
-        Path to the generated clip file
+    Raises:
+        VideoClipError — FFmpeg failed or produced no output
     """
     os.makedirs(CLIPS_DIR, exist_ok=True)
 
     output_path = os.path.join(CLIPS_DIR, f"{clip_id}.mp4")
-    duration = end_time - start_time
+    duration    = end_time - start_time
+
+    if not os.path.exists(input_path):
+        raise VideoClipError(f"Source video not found at {input_path}")
 
     if progress_callback:
-        progress_callback(50, "Clipping video with FFmpeg")
+        progress_callback(50, "Clipping video")
 
     cmd = [
-        "ffmpeg",
-        "-y",                        # overwrite output if exists
-        "-ss", str(start_time),      # seek to start (fast seek)
-        "-i", input_path,            # input file
-        "-t", str(duration),         # duration to clip
-        "-c:v", "libx264",           # re-encode video with H.264
-        "-c:a", "aac",               # re-encode audio with AAC
-        "-preset", "fast",           # encoding speed vs compression
-        "-crf", "23",                # quality (lower = better, 18-28 is good)
-        "-movflags", "+faststart",   # optimise for web streaming
+        "ffmpeg", "-y",
+        "-ss", str(start_time),
+        "-i", input_path,
+        "-t", str(duration),
+        "-c:v", "libx264",
+        "-c:a", "aac",
+        "-preset", "fast",
+        "-crf", "23",
+        "-movflags", "+faststart",
         output_path,
     ]
 
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-    )
+    result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        raise RuntimeError(
-            f"FFmpeg clip failed:\n{result.stderr}"
-        )
+        stderr = result.stderr or ""
+        # Identify specific FFmpeg failure reasons
+        if "no such file" in stderr.lower():
+            raise VideoClipError("Source video file not found by FFmpeg.")
+        if "invalid data" in stderr.lower() or "moov atom not found" in stderr.lower():
+            raise VideoClipError("Source video file is corrupted or incomplete.")
+        if "encoder" in stderr.lower() or "codec" in stderr.lower():
+            raise VideoClipError("Video encoding failed. The format may be unsupported.")
+        raise VideoClipError(f"FFmpeg clip failed: {stderr[-300:]}")
 
     if not os.path.exists(output_path):
-        raise FileNotFoundError(
-            f"FFmpeg did not produce output file at {output_path}"
-        )
+        raise VideoClipError("FFmpeg ran successfully but produced no output file.")
+
+    # Sanity check — output should be non-empty
+    if os.path.getsize(output_path) < 1024:
+        raise VideoClipError("Generated clip is too small — something went wrong during clipping.")
 
     if progress_callback:
         progress_callback(80, "Clip generated successfully")

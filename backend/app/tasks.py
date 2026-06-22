@@ -5,14 +5,15 @@ from app.models import Clip, Job
 from app.downloader import download_video
 from app.clipper import clip_video
 from app.thumbnailer import generate_thumbnail
+from app.exceptions import ClipperError
 
 
 def update_job(db, job: Job, status: str, progress: int, message: str, error: str = None):
-    """Helper to update job status in the database."""
-    job.status = status
+    """Update job status, progress and message in the database."""
+    job.status   = status
     job.progress = progress
-    job.message = message
-    job.error = error
+    job.message  = message
+    job.error    = error
     db.commit()
     db.refresh(job)
 
@@ -21,7 +22,10 @@ def update_job(db, job: Job, status: str, progress: int, message: str, error: st
 def process_clip_job(job_id: str):
     """
     Main processing actor.
-    Full pipeline: download → clip → thumbnail → done
+    Pipeline: download → clip → thumbnail → done
+
+    ClipperError subclasses produce clean user-facing messages.
+    Unexpected exceptions are caught and logged separately.
     """
     db = SessionLocal()
     try:
@@ -33,7 +37,7 @@ def process_clip_job(job_id: str):
 
         clip = db.query(Clip).filter(Clip.id == job.clip_id).first()
         if not clip:
-            update_job(db, job, "failed", 0, "Clip record not found")
+            update_job(db, job, "failed", 0, "Clip record not found", "Clip not found in database")
             return
 
         print(f"[worker] ▶ Starting job {job_id} for clip {clip.id}")
@@ -50,12 +54,12 @@ def process_clip_job(job_id: str):
         )
 
         clip.video_path = result["file_path"]
-        clip.title = result["title"]
+        clip.title      = result["title"]
         db.commit()
         db.refresh(clip)
 
         print(f"[worker] ✅ Download complete: {result['file_path']}")
-        update_job(db, job, "processing", 40, "Download complete, starting clip")
+        update_job(db, job, "processing", 40, "Download complete, clipping")
 
         # ── Step 2: Clip ──────────────────────────────────────────────────
         clip_path = clip_video(
@@ -83,18 +87,19 @@ def process_clip_job(job_id: str):
             progress_callback=on_progress,
         )
 
-        clip.thumbnail_path = thumbnail_path
-        db.commit()
-        db.refresh(clip)
-
-        print(f"[worker] ✅ Thumbnail complete: {thumbnail_path}")
+        if thumbnail_path:
+            clip.thumbnail_path = thumbnail_path
+            db.commit()
+            db.refresh(clip)
+            print(f"[worker] ✅ Thumbnail complete: {thumbnail_path}")
 
         # ── Done ──────────────────────────────────────────────────────────
         update_job(db, job, "done", 100, "Clip ready for download")
         print(f"[worker] 🎉 Job {job_id} complete!")
 
-    except Exception as e:
-        print(f"[worker] ❌ Job {job_id} failed: {e}")
+    except ClipperError as e:
+        # Known, user-facing errors — clean message, no stack trace needed
+        print(f"[worker] ⚠ Job {job_id} failed (known error): {e}")
         db.rollback()
         try:
             job = db.query(Job).filter(Job.id == job_id).first()
@@ -102,5 +107,22 @@ def process_clip_job(job_id: str):
                 update_job(db, job, "failed", 0, "Processing failed", str(e))
         except Exception:
             pass
+
+    except Exception as e:
+        # Unexpected errors — log the full exception for debugging
+        import traceback
+        print(f"[worker] ❌ Job {job_id} unexpected error:\n{traceback.format_exc()}")
+        db.rollback()
+        try:
+            job = db.query(Job).filter(Job.id == job_id).first()
+            if job:
+                update_job(
+                    db, job, "failed", 0,
+                    "An unexpected error occurred",
+                    "Internal error — check worker logs for details"
+                )
+        except Exception:
+            pass
+
     finally:
         db.close()
