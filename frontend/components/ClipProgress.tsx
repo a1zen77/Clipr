@@ -133,17 +133,20 @@ export function ClipProgress({ clipId, onComplete }: ClipProgressProps) {
       )}
 
       {/* Error */}
-      {status === "failed" && job?.error && (
+      {status === "failed" && (
         <div style={{
           marginTop: "1rem",
           background: "var(--error-dim)",
           border: "1px solid var(--error)",
           borderRadius: 8,
           padding: "10px 12px",
-          fontSize: 13,
-          color: "var(--error)",
         }}>
-          {job.error}
+          <p style={{ fontSize: 12, fontWeight: 600, color: "var(--error)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            Failed
+          </p>
+          <p style={{ fontSize: 13, color: "var(--error)" }}>
+            {job?.error ?? "An unexpected error occurred. Check the worker logs."}
+          </p>
         </div>
       )}
 
