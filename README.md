@@ -96,7 +96,7 @@ Make sure that Redis and Postgres are running in the background at all times. Yo
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/a1zen77/social_video_clipper.git
+git clone https://github.com/a1zen77/Clipr.git
 cd social_video_clipper
 ```
 
