@@ -19,3 +19,4 @@ storage/temp/*
 !storage/**/.gitkeep
 
 backend/storage
+commands.txt

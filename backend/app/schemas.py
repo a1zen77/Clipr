@@ -1,15 +1,16 @@
-from pydantic import BaseModel, HttpUrl, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
+import re
 
 
-# ─── Job Schemas ────────────────────────────────────────────────────────────
+# ─── Job Schemas ─────────────────────────────────────────────────────────────
 
 class JobResponse(BaseModel):
     id: str
     clip_id: str
-    status: str        # pending, processing, done, failed
-    progress: int      # 0-100
+    status: str
+    progress: int
     message: Optional[str] = None
     error: Optional[str] = None
     created_at: datetime
@@ -18,34 +19,66 @@ class JobResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ─── Clip Schemas ────────────────────────────────────────────────────────────
+# ─── Clip Schemas ─────────────────────────────────────────────────────────────
 
 class ClipCreate(BaseModel):
-    """Request body for submitting a new clip."""
     url: str
-    start_time: float  # seconds
-    end_time: float    # seconds
+    start_time: float
+    end_time: float
 
     @field_validator("url")
     @classmethod
-    def validate_twitter_url(cls, v):
-        if "x.com" not in v and "twitter.com" not in v:
-            raise ValueError("URL must be an X/Twitter post URL")
+    def validate_and_clean_url(cls, v: str) -> str:
+        v = v.strip()
+
+        # Strip tracking params (e.g. ?s=20&t=abc)
+        v = re.sub(r"\?.*$", "", v)
+
+        # Must be x.com or twitter.com
+        if not re.search(r"(x\.com|twitter\.com)/\S+/status/\d+", v):
+            raise ValueError(
+                "Must be a valid X/Twitter post URL "
+                "(e.g. https://x.com/user/status/123456789)"
+            )
         return v
+
+    @field_validator("start_time")
+    @classmethod
+    def validate_start_time(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("Start time cannot be negative")
+        if v > 86400:
+            raise ValueError("Start time is unrealistically large")
+        return round(v, 2)
 
     @field_validator("end_time")
     @classmethod
-    def validate_end_time(cls, v, info):
-        start = info.data.get("start_time")
-        if start is not None and v <= start:
-            raise ValueError("end_time must be greater than start_time")
-        if v - (start or 0) > 300:
-            raise ValueError("Clip duration cannot exceed 300 seconds (5 minutes)")
-        return v
+    def validate_end_time(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("End time cannot be negative")
+        if v > 86400:
+            raise ValueError("End time is unrealistically large")
+        return round(v, 2)
+
+    @model_validator(mode="after")
+    def validate_time_range(self) -> "ClipCreate":
+        start = self.start_time
+        end   = self.end_time
+
+        if end <= start:
+            raise ValueError("End time must be greater than start time")
+
+        duration = end - start
+        if duration < 1:
+            raise ValueError("Clip must be at least 1 second long")
+        if duration > 300:
+            raise ValueError(
+                f"Clip duration is {int(duration)}s — maximum is 300s (5 minutes)"
+            )
+        return self
 
 
 class ClipResponse(BaseModel):
-    """Response body for a clip — returned after creation or lookup."""
     id: str
     url: str
     start_time: float
@@ -62,6 +95,5 @@ class ClipResponse(BaseModel):
 
 
 class ClipListResponse(BaseModel):
-    """Response body for listing all clips."""
     total: int
     clips: list[ClipResponse]
