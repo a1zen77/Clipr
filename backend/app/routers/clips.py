@@ -9,13 +9,36 @@ from app.tasks import process_clip_job
 router = APIRouter(prefix="/clips", tags=["clips"])
 
 
-# ─── POST /clips ─────────────────────────────────────────────────────────────
+# ─── POST /clips ──────────────────────────────────────────────────────────────
 
 @router.post("", response_model=ClipResponse, status_code=201)
 def create_clip(payload: ClipCreate, db: Session = Depends(get_db)):
-    """Submit a new clip request and dispatch it to the worker queue."""
+    """
+    Submit a new clip request and dispatch it to the worker queue.
+    If an identical request (same URL + timestamps) already exists,
+    return the existing clip instead of re-processing.
+    """
 
-    # Create the clip record
+    # ── Duplicate guard ───────────────────────────────────────────────────
+    existing = (
+        db.query(Clip)
+        .filter(
+            Clip.url        == payload.url,
+            Clip.start_time == payload.start_time,
+            Clip.end_time   == payload.end_time,
+        )
+        .order_by(Clip.created_at.desc())
+        .first()
+    )
+
+    if existing:
+        job = existing.job
+        # Only reuse if the job succeeded or is still in progress
+        if job and job.status in ("done", "pending", "processing"):
+            print(f"[api] ♻ Returning existing clip {existing.id} (status: {job.status})")
+            return existing
+
+    # ── Create new clip record ────────────────────────────────────────────
     clip = Clip(
         id=str(uuid.uuid4()),
         url=payload.url,
@@ -24,9 +47,9 @@ def create_clip(payload: ClipCreate, db: Session = Depends(get_db)):
         duration=payload.end_time - payload.start_time,
     )
     db.add(clip)
-    db.flush()  # get clip.id without committing yet
+    db.flush()
 
-    # Create the associated job record
+    # ── Create associated job record ──────────────────────────────────────
     job = Job(
         id=str(uuid.uuid4()),
         clip_id=clip.id,
@@ -38,7 +61,7 @@ def create_clip(payload: ClipCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(clip)
 
-    # Dispatch to the worker queue
+    # ── Dispatch to worker queue ──────────────────────────────────────────
     process_clip_job.send(job.id)
     print(f"[api] ✅ Dispatched job {job.id} for clip {clip.id}")
 
