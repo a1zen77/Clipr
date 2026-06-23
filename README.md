@@ -32,6 +32,12 @@ Whether you're:
 
 ---
 
+## Architecture
+
+![Architecture diagram](docs/architecture.png)
+
+---
+
 ## Features
 
 - Paste any X/Twitter post URL containing a video
