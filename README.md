@@ -34,7 +34,9 @@ Whether you're:
 
 ## Architecture
 
-![Architecture diagram](docs/architecture.png)
+<p align="center">
+  <img src="docs/architecture.png" alt="Architecture diagram" height="500"/>
+</p>
 
 ---
 
