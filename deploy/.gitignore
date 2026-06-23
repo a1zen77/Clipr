@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+.next/
+storage/videos/*
+storage/clips/*
+storage/thumbnails/*
+storage/temp/*
+!storage/**/.gitkeep
+deploy/backend/.venv/
+deploy/frontend/node_modules/
+deploy/frontend/.next/
+backend/storage
+*.db
